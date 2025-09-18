@@ -18,7 +18,7 @@ def test_load_weather_uses_user_city_name(monkeypatch, db):
         return DummyGeo(name="Seville", country="Spain", lat=37.39, lon=-5.99)
 
     tz = ZoneInfo(settings.TIME_ZONE)
-    
+
     def fake_fetch_hourly(lat, lon, start, end):
         return [
             {"date_time": dt.datetime(2024, 7, 1, 0, tzinfo=tz), "temperature_2m": 20.0, "precipitation": 0.0}
@@ -30,6 +30,6 @@ def test_load_weather_uses_user_city_name(monkeypatch, db):
 
     call_command("load_weather", city="Sevilla", start="2024-07-01", end="2024-07-01")
 
-    c = City.objects.get(country="Spain")
-    assert c.name == "Sevilla"
-    assert HourlyWeather.objects.filter(city=c).count() == 1
+    city = City.objects.get(country="Spain")
+    assert city.name == "Sevilla"
+    assert HourlyWeather.objects.filter(city=city).count() == 1

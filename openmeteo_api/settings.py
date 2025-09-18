@@ -22,7 +22,6 @@ OPEN_METEO_ARCHIVE_URL = os.getenv(
     "OPEN_METEO_ARCHIVE_URL",
     "https://archive-api.open-meteo.com/v1/archive",
 )
-REQUEST_TIMEOUT_SECS = float(os.getenv("REQUEST_TIMEOUT_SECS", "20"))
 DEFAULT_TZ = os.getenv("DEFAULT_TZ", TIME_ZONE)
 DEFAULT_TEMP_THRESHOLD_HIGH = float(os.getenv("DEFAULT_TEMP_THRESHOLD_HIGH", "30.0"))
 DEFAULT_TEMP_THRESHOLD_LOW = float(os.getenv("DEFAULT_TEMP_THRESHOLD_LOW", "0.0"))

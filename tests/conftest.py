@@ -26,6 +26,6 @@ def sample_hours_madrid(db, city_madrid):
         (aware(2024, 7, 2, 7), 14.5, 0.0),
         (aware(2024, 7, 3, 17), 33.4, 3.7),
     ]
-    for dt_, t, p in data:
-        HourlyWeather.objects.create(city=city_madrid, date_time=dt_, temperature_2m=t, precipitation=p)
+    for dt_, temperature, precipitation in data:
+        HourlyWeather.objects.create(city=city_madrid, date_time=dt_, temperature_2m=temperature, precipitation=precipitation)
     return city_madrid

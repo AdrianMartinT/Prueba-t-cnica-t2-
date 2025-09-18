@@ -17,9 +17,9 @@ class GeocodeResult:
 
 
 def geocode_city(city: str) -> GeocodeResult | None:
-    r = requests.get(GEOCODE_URL, params={"name": city, "count": 1})
-    r.raise_for_status()
-    data = r.json()
+    result = requests.get(GEOCODE_URL, params={"name": city, "count": 1})
+    result.raise_for_status()
+    data = result.json()
     if not data.get("results"):
         return None
     x = data["results"][0]
@@ -39,14 +39,14 @@ def fetch_hourly(
     tz: str = None
 ):
     tz = tz or settings.DEFAULT_TZ
-    r = requests.get(ARCHIVE_URL, params={
+    result = requests.get(ARCHIVE_URL, params={
         "latitude": lat, "longitude": lon,
         "start_date": start, "end_date": end,
         "hourly": "temperature_2m,precipitation",
         "timezone": tz,
     })
-    r.raise_for_status()
-    j = r.json()
+    result.raise_for_status()
+    j = result.json()
     hourly = j.get("hourly", {})
     times = hourly.get("time", []) or []
     temps = hourly.get("temperature_2m", []) or []

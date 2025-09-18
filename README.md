@@ -1,24 +1,14 @@
 # Open-Meteo Weather
 
-App en **Python/Django** para cargar datos horarios de **temperatura** y **precipitación** desde la API pública de [Open-Meteo](https://open-meteo.com/en/docs) y almacenarlos en **PostgreSQL**.
+App en **Python/Django** para cargar datos horarios de **temperatura** y **precipitación** desde la API pública de [Open-Meteo](https://open-meteo.com/en/docs), almacenarlos en **PostgreSQL** y consultarlos.
 
 ## Tecnologías
 
 - Django + Django REST Framework  
 - PostgreSQL + psycopg3  
 - Requests  
-- Pandas / NumPy  
-
-## Estructura
-
-PruebaSerquo/
-├─ manage.py
-├─ openmeteo_api/ # settings y urls
-├─ meteo/ # app principal
-│ ├─ models.py # City, HourlyWeather
-│ ├─ services/ # integración Open-Meteo
-│ └─ management/ # comandos CLI (load_weather)
-└─ requirements.txt
+- Pandas / NumPy
+- Pytest 
 
 
 ## Base de datos

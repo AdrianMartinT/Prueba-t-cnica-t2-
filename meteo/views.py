@@ -1,6 +1,7 @@
 from datetime import datetime, time, timezone as py_timezone
 from zoneinfo import ZoneInfo
 import pandas as pd
+import numpy as np
 from django.db.models import QuerySet
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -16,14 +17,14 @@ from .serializers import (
 
 class TemperatureStatsView(APIView):
     def get(self, request):
-        s = TemperatureQuerySerializer(data=request.query_params)
-        s.is_valid(raise_exception=True)
-        city_name = s.validated_data["city"]
-        start = s.validated_data["start"]
-        end = s.validated_data["end"]
-        threshold = s.validated_data["threshold"]
-        threshold_low = s.validated_data["threshold_low"]
-        tzname = s.validated_data["timezone"]
+        temperature_query_serializer = TemperatureQuerySerializer(data=request.query_params)
+        temperature_query_serializer.is_valid(raise_exception=True)
+        city_name = temperature_query_serializer.validated_data["city"]
+        start = temperature_query_serializer.validated_data["start"]
+        end = temperature_query_serializer.validated_data["end"]
+        threshold = temperature_query_serializer.validated_data["threshold"]
+        threshold_low = temperature_query_serializer.validated_data["threshold_low"]
+        tzname = temperature_query_serializer.validated_data["timezone"]
         tz = ZoneInfo(tzname)
 
         try:
@@ -49,21 +50,24 @@ class TemperatureStatsView(APIView):
         df["date_time"] = pd.to_datetime(df["date_time"], utc=True).dt.tz_convert(tz)
         df["date"] = df["date_time"].dt.date
         temps = df["temperature_2m"].astype("float")
+        arr = temps.to_numpy(dtype=float)
 
-        avg = float(temps.mean())
-        avg_by_day = {d.isoformat(): float(g["temperature_2m"].mean())
-                      for d, g in df.groupby("date")}
+        avg = float(np.nanmean(arr))
+        idx_max = int(np.nanargmax(arr))
+        idx_min = int(np.nanargmin(arr))
 
-        idx_max = temps.idxmax()
-        idx_min = temps.idxmin()
+        avg_by_day = {
+            d.isoformat(): float(np.nanmean(g["temperature_2m"].to_numpy(dtype=float)))
+            for d, g in df.groupby("date")
+        }
         max_row = df.loc[idx_max]
         min_row = df.loc[idx_min]
 
         def iso_minutes(dt: pd.Timestamp) -> str:
             return dt.to_pydatetime().replace(second=0, microsecond=0).isoformat()
 
-        hours_above = int((temps > float(threshold)).sum())
-        hours_below = int((temps < float(threshold_low)).sum())
+        hours_above = int(np.sum(arr > float(threshold)))
+        hours_below = int(np.sum(arr < float(threshold_low)))
 
         payload = {
             "temperature": {
@@ -86,12 +90,12 @@ class TemperatureStatsView(APIView):
 
 class PrecipitationStatsView(APIView):
     def get(self, request):
-        s = PrecipitationQuerySerializer(data=request.query_params)
-        s.is_valid(raise_exception=True)
-        city_name = s.validated_data["city"]
-        start = s.validated_data["start"]
-        end = s.validated_data["end"]
-        tzname = s.validated_data["timezone"]
+        precipitation_query_serializer = PrecipitationQuerySerializer(data=request.query_params)
+        precipitation_query_serializer.is_valid(raise_exception=True)
+        city_name = precipitation_query_serializer.validated_data["city"]
+        start = precipitation_query_serializer.validated_data["start"]
+        end = precipitation_query_serializer.validated_data["end"]
+        tzname = precipitation_query_serializer.validated_data["timezone"]
         tz = ZoneInfo(tzname)
 
         try:
@@ -116,9 +120,9 @@ class PrecipitationStatsView(APIView):
         df["precipitation"] = df["precipitation"].astype("float").fillna(0.0)
 
         daily = df.groupby("date")["precipitation"].sum()
-        total = float(daily.sum())
+        total = float(np.nansum(daily.to_numpy(dtype=float)))
         total_by_day = {d.isoformat(): round(float(v), 1) for d, v in daily.items()}
-        days_with_precip = int((daily > 0).sum())
+        days_with_precip = int(np.sum(daily.to_numpy(dtype=float) > 0))
 
         max_date = daily.idxmax()
         max_value = float(daily.loc[max_date]) if len(daily) else 0.0
@@ -143,17 +147,17 @@ class PrecipitationStatsView(APIView):
 
 class SummaryStatsView(APIView):
     def get(self, request):
-        s = SummaryQuerySerializer(data=request.query_params)
-        s.is_valid(raise_exception=True)
-        start = s.validated_data["start"]
-        end = s.validated_data["end"]
-        tz = ZoneInfo(s.validated_data["timezone"])
+        summary_query_serializer = SummaryQuerySerializer(data=request.query_params)
+        summary_query_serializer.is_valid(raise_exception=True)
+        start = summary_query_serializer.validated_data["start"]
+        end = summary_query_serializer.validated_data["end"]
+        tz = ZoneInfo(summary_query_serializer.validated_data["timezone"])
 
         names = []
-        if s.validated_data.get("city"):
-            names = [s.validated_data["city"]]
-        if s.validated_data.get("cities"):
-            names += [c.strip() for c in s.validated_data["cities"].split(",") if c.strip()]
+        if summary_query_serializer.validated_data.get("city"):
+            names = [summary_query_serializer.validated_data["city"]]
+        if summary_query_serializer.validated_data.get("cities"):
+            names += [c.strip() for c in summary_query_serializer.validated_data["cities"].split(",") if c.strip()]
 
         start_utc = datetime.combine(start, time.min).replace(tzinfo=tz).astimezone(py_timezone.utc)
         end_utc = datetime.combine(end, time.max).replace(tzinfo=tz).astimezone(py_timezone.utc)
@@ -189,9 +193,10 @@ class SummaryStatsView(APIView):
             df["temperature_2m"] = df["temperature_2m"].astype("float")
             df["precipitation"] = df["precipitation"].astype("float").fillna(0.0)
 
-            t_avg = round(float(df["temperature_2m"].mean()), 1)
-            t_max_row = df.loc[df["temperature_2m"].idxmax()]
-            t_min_row = df.loc[df["temperature_2m"].idxmin()]
+            t_arr = df["temperature_2m"].to_numpy(dtype=float)
+            t_avg = round(float(np.nanmean(t_arr)), 1)
+            t_max_row = df.iloc[int(np.nanargmax(t_arr))]
+            t_min_row = df.iloc[int(np.nanargmin(t_arr))]
 
             def fmt_dt_no_seconds(ts: pd.Timestamp) -> str:
                 return ts.to_pydatetime().replace(second=0,
@@ -208,8 +213,9 @@ class SummaryStatsView(APIView):
             }
 
             daily_prec = df.groupby("date")["precipitation"].sum()
-            p_total = round(float(daily_prec.sum()), 1)
-            days_with_prec = int((daily_prec > 0).sum())
+            dp_arr = daily_prec.to_numpy(dtype=float)
+            precipitation_total = round(float(np.nansum(dp_arr)), 1)
+            days_with_prec = int(np.sum(dp_arr > 0))
             if len(daily_prec):
                 p_max_date = daily_prec.idxmax()
                 p_max_value = round(float(daily_prec.loc[p_max_date]), 1)
@@ -222,7 +228,7 @@ class SummaryStatsView(APIView):
                 "start_date": start.isoformat(),
                 "end_date": end.isoformat(),
                 "temperature_average": t_avg,
-                "precipitation_total": p_total,
+                "precipitation_total": precipitation_total,
                 "days_with_precipitation": days_with_prec,
                 "precipitation_max": precipitation_max,
                 "temperature_max": temperature_max,
